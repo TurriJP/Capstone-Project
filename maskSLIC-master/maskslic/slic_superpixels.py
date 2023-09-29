@@ -12,7 +12,7 @@ See licence.txt for more details
 
 # coding=utf-8
 from __future__ import division, absolute_import, unicode_literals, print_function
-import collections as coll
+import collections.abc as coll
 import numpy as np
 from scipy import ndimage as ndi
 from scipy.ndimage.morphology import distance_transform_edt
@@ -228,6 +228,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     if slic_zero:
         raise NotImplementedError("Slic zero has not been implemented yet for maskSLIC.")
 
+    print('OLARRRRR')
 
     img = np.copy(image)
     if mask is not None:
@@ -259,9 +260,9 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         image = image[..., np.newaxis]
 
     if mask is None:
-        mask = np.ones(image.shape[:3], dtype=np.bool)
+        mask = np.ones(image.shape[:3], dtype=bool)
     else:
-        mask = np.asarray(mask, dtype=np.bool)
+        mask = np.asarray(mask, dtype=bool)
 
     if mask.ndim == 2:
         mask = mask[np.newaxis, ...]

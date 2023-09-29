@@ -3,6 +3,19 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Compiled files
+maskSLIC-master/build/
+maskSLIC-master/maskslic/__init__.pyc
+maskSLIC-master/maskslic/__pycache__/
+maskSLIC-master/maskslic/_slic.c
+maskSLIC-master/maskslic/_slic.cpython-34m.so
+maskSLIC-master/maskslic/_slic.so
+maskSLIC-master/maskslic/processing.cpython-34m.so
+maskSLIC-master/maskslic/processing.so
+maskSLIC-master/maskslic/slic_superpixels.pyc
+maskSLIC-master/slic_testing.pyc
+
+
 # C extensions
 *.so
 
