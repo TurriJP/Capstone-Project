@@ -121,6 +121,7 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
     
     # with nogil:
     for i in range(max_iter):
+        print(f'ITERAÇÃO: {i}')
         change = 0
         distance[:, :, :] = DBL_MAX
 
@@ -161,6 +162,7 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                         dist_center = (dz + dy + (sx * (cx - x)) ** 2) * spatial_weight
                         # gg = GeneralizedGamma(image_zyx)
                         dist_color = gg.likelihood_distance(image_zyx[z, y, x, 0], 0.3, dist_center)
+                        # print(dist_color)
                         # dist_color = 0
                         # for c in range(3, n_features):
                         #     dist_color += (image_zyx[z, y, x, c - 3]
@@ -173,7 +175,7 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                                 dist_center += dist_color
 
                         #assign new distance and new label to voxel if closer than other voxels
-                        if distance[z, y, x] < dist_center:
+                        if int(i)==0 or (distance[z, y, x] < dist_center):
                             nearest_segments[z, y, x] = k
                             distance[z, y, x] = dist_center
                             #record change

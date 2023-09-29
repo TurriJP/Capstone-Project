@@ -15,6 +15,11 @@ maskSLIC-master/maskslic/processing.so
 maskSLIC-master/maskslic/slic_superpixels.pyc
 maskSLIC-master/slic_testing.pyc
 
+maskSLIC-master/export
+maskSLIC-master/export/*
+maskSLIC-master/result.png
+maskSLIC-master/bounded_result.png
+
 
 # C extensions
 *.so
