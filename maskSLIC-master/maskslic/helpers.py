@@ -50,13 +50,12 @@ class GeneralizedGamma():
 
         return (part1/part2) * part3 * part4
     
-def likelihood_distance(data, z, w, spatial_distance):
-    if spatial_distance == 0:
-        spatial_distance = 0.000001
-    gg = GeneralizedGamma(data)
-    probability = gg.function_value(z)
-    s_f = 1 - np.exp(-probability)
-    s_d = 1 - np.exp(-1/spatial_distance)
-    ml_distance = w*s_f + ((1-w)*s_d)
+    def likelihood_distance(self, z, w, spatial_distance):
+        if spatial_distance == 0:
+            spatial_distance = 0.000001
+        probability = self.function_value(z)
+        s_f = 1 - np.exp(-probability)
+        s_d = 1 - np.exp(-1/spatial_distance)
+        ml_distance = w*s_f + ((1-w)*s_d)
 
-    return ml_distance
+        return ml_distance

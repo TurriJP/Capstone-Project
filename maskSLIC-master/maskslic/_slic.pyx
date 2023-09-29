@@ -22,7 +22,7 @@ cimport numpy as np
 
 from skimage.util import regular_grid
 
-from .helpers import likelihood_distance
+from .helpers import GeneralizedGamma
 
 
 def _slic_cython(double[:, :, :, ::1] image_zyx,
@@ -140,6 +140,14 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
             x_min = <Py_ssize_t>max(cx - 2 * step_x, 0)
             x_max = <Py_ssize_t>min(cx + 2 * step_x + 1, width)
 
+            gg = None
+            if i==0:
+                gg = GeneralizedGamma(image_zyx[z_min:z_max, y_min:y_max, x_min:x_max, :])
+            else:
+                segment_mask = nearest_segments == int(k)
+                current_segment = image_zyx[segment_mask]
+                gg = GeneralizedGamma(current_segment)
+
             for z in range(z_min, z_max):
                 dz = (sz * (cz - z)) ** 2
                 for y in range(y_min, y_max):
@@ -151,8 +159,8 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             continue
 
                         dist_center = (dz + dy + (sx * (cx - x)) ** 2) * spatial_weight
-                        dist_color = likelihood_distance(image_zyx, image_zyx[z, y, x, 0], 0.3, dist_center)
-                        print(dist_color)
+                        # gg = GeneralizedGamma(image_zyx)
+                        dist_color = gg.likelihood_distance(image_zyx[z, y, x, 0], 0.3, dist_center)
                         # dist_color = 0
                         # for c in range(3, n_features):
                         #     dist_color += (image_zyx[z, y, x, c - 3]
