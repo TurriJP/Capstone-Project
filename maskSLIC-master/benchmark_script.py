@@ -15,9 +15,9 @@ vv = imread('data/VV_VH.tif')
 # image = vv[0:300][0:300][:][:]
 # print(len(image[0]))
 
-image = vv[0:300]#, 0:300]
+image = vv[0:100, 0:100]
 
-vv_slic = seg.slic(image)
+vv_slic = seg.slic(image, n_segments=10)
 # plt.imshow(vv_slic)
 plt.imsave('result.png', vv_slic)
 
