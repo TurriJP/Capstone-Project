@@ -8,15 +8,15 @@ import matplotlib.pyplot as plt
 
 class GeneralizedGamma():
 
-    def __init__(self, data, verbose=False):
+    def __init__(self, data, verbose=False, plot=False):
         self.verbose = verbose
         converted_data = np.asarray(data)
         # if self.verbose:
         #     print(converted_data)
         self.data = converted_data[converted_data != 0]
         self.N = len(self.data)
-        # if self.verbose:
-        print(f'Número de pixels: {self.N}')
+        if self.verbose:
+            print(f'Número de pixels: {self.N}')
 
         # Assign experimental values using 
         # the method of log cumulants
@@ -26,7 +26,8 @@ class GeneralizedGamma():
 
         # Solve for the unknown parameters
         self.solve()
-        self.plot()
+        if plot:
+            self.plot()
 
     def equations(self, vars):
         # Define the system of equations
@@ -56,7 +57,7 @@ class GeneralizedGamma():
     
     def plot(self):
         x = np.linspace(1, 255, 300)
-        y = self.function_value(x) * 4300000
+        y = self.function_value(x) * 4300
 
         plt.figure(figsize=(8, 6))  # Optional: Set the figure size
 
@@ -73,11 +74,12 @@ class GeneralizedGamma():
     
     def likelihood_distance(self, z, w, spatial_distance):
 
-        return self.function_value(z)
+        # return self.function_value(z)
         # if spatial_distance == 0:
         #     spatial_distance = 0.000001
-        # probability = self.function_value(z)
-        # s_f = 1 - np.exp(-probability)
+        probability = self.function_value(z)
+        s_f = 1 - np.exp(-probability)
+        return s_f
         # s_d = 1 - np.exp(-1/spatial_distance)
         # ml_distance = w*s_f + ((1-w)*s_d)
 

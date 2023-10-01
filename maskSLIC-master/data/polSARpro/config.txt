@@ -1,0 +1,12 @@
+Nrow
+858
+---------
+Ncol
+1266
+---------
+PolarCase
+monostatic
+---------
+PolarType
+dual
+---------

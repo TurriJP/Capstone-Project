@@ -1,0 +1,13 @@
+ENVI
+description = {Sentinel-1 IW Level-1 GRD Product - Unit: amplitude}
+samples = 1266
+lines = 858
+bands = 1
+header offset = 0
+file type = ENVI Standard
+data type = 12
+interleave = bsq
+byte order = 1
+band names = { Amplitude_VV }
+data gain values = {1.0}
+data offset values = {0.0}

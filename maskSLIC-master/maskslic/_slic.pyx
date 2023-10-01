@@ -24,7 +24,6 @@ from skimage.util import regular_grid
 
 from .helpers import GeneralizedGamma
 
-
 def _slic_cython(double[:, :, :, ::1] image_zyx,
                  int[:, :, ::1] mask,
                  double[:, ::1] segments,
@@ -118,10 +117,8 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
 
     # The reference implementation (Achanta et al.) calls this invxywt
     cdef double spatial_weight = float(1) / (step ** 2)
-    
-    # with nogil:
+
     for i in range(max_iter):
-        print(f'ITERAÇÃO: {i}')
         change = 0
         distance[:, :, :] = DBL_MAX
 
@@ -141,13 +138,9 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
             x_min = <Py_ssize_t>max(cx - 2 * step_x, 0)
             x_max = <Py_ssize_t>min(cx + 2 * step_x + 1, width)
 
-            gg = None
-            if i==0:
-                gg = GeneralizedGamma(image_zyx[z_min:z_max, y_min:y_max, x_min:x_max, :])
-            else:
-                segment_mask = nearest_segments == int(k)
-                current_segment = image_zyx[segment_mask]
-                gg = GeneralizedGamma(current_segment)
+            segment_mask = nearest_segments == int(k)
+            current_segment = image_zyx[segment_mask]
+            gg = GeneralizedGamma(current_segment)
 
             for z in range(z_min, z_max):
                 dz = (sz * (cz - z)) ** 2
@@ -159,23 +152,27 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             nearest_segments[z, y, x] = -1
                             continue
 
-                        dist_center = (dz + dy + (sx * (cx - x)) ** 2) * spatial_weight
-                        # gg = GeneralizedGamma(image_zyx)
-                        dist_color = gg.likelihood_distance(image_zyx[z, y, x, 0], 0.3, dist_center)
-                        # print(dist_color)
+                        # print((dz + dy + (sx * (cx - x))))
+                        distance = (dz + dy + (sx * (cx - x)))
+                        if distance!=0:
+                            dist_center = (1 - np.exp(-1/distance)) * spatial_weight
+                        else:
+                            dist_center = (1 - np.exp(-1/0.0001)) * spatial_weight
                         # dist_color = 0
                         # for c in range(3, n_features):
                         #     dist_color += (image_zyx[z, y, x, c - 3]
                         #                     - segments[k, c]) ** 2
+                        dist_color = (1 - spatial_weight) * (1-np.exp(-1*gg.function_value(image_zyx[z, y, x])))
                         if slic_zero:
                             # TODO not implemented yet for slico
                             dist_center += dist_color / max_dist_color[k]
                         else:
                             if not only_dist:
                                 dist_center += dist_color
+                                # print(dist_center > 0 and dist_center < 1)
 
                         #assign new distance and new label to voxel if closer than other voxels
-                        if int(i)==0 or (distance[z, y, x] < dist_center):
+                        if distance[z, y, x]==DBL_MAX or distance[z, y, x] < dist_center:
                             nearest_segments[z, y, x] = k
                             distance[z, y, x] = dist_center
                             #record change
