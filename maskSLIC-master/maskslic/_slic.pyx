@@ -9,7 +9,8 @@ Modifications (C) Benjamin Irving
 See licence.txt for more details
 
 """
-
+import asyncio
+import functools
 #cython: cdivision=True
 #cython: boundscheck=False
 #cython: nonecheck=False
@@ -24,6 +25,22 @@ from skimage.util import regular_grid
 
 from .helpers import GeneralizedGamma
 
+def background(f):
+    def wrapped(*args, **kwargs):
+        return asyncio.get_event_loop().run_in_executor(None,functools.partial(f, data={
+    'image_zyx': kwargs.get('image_zyx'),
+    'mask': kwargs.get('mask'),
+    'segments': kwargs.get('segments'),
+    'step': kwargs.get('step'),
+    'max_iter': kwargs.get('max_iter'),
+    'spacing': kwargs.get('spacing'),
+    'slic_zero': kwargs.get('slic_zero'),
+    'only_dist': kwargs.get('only_dist')
+}))
+
+    return wrapped
+
+@background
 def _slic_cython(double[:, :, :, ::1] image_zyx,
                  int[:, :, ::1] mask,
                  double[:, ::1] segments,
@@ -153,11 +170,8 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             continue
 
                         # print((dz + dy + (sx * (cx - x))))
-                        distance = (dz + dy + (sx * (cx - x)))
-                        if distance!=0:
-                            dist_center = (1 - np.exp(-1/distance)) * spatial_weight
-                        else:
-                            dist_center = (1 - np.exp(-1/0.0001)) * spatial_weight
+                        dist_center = (dz + dy + (sx * (cx - x)))
+                        # dist_center = (1 - np.exp(-1/distance)) * spatial_weight
                         # dist_color = 0
                         # for c in range(3, n_features):
                         #     dist_color += (image_zyx[z, y, x, c - 3]
