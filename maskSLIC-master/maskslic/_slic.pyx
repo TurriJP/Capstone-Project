@@ -134,6 +134,9 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
 
     # The reference implementation (Achanta et al.) calls this invxywt
     cdef double spatial_weight = float(1) / (step ** 2)
+    spatial_weight = 0.0001
+
+    print(f'Spatial weight: {spatial_weight}')
 
     for i in range(max_iter):
         print(f'Iteração {i}')
@@ -175,21 +178,24 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             continue
 
                         # print((dz + dy + (sx * (cx - x))))
-                        distance_sum = (dz + dy + (sx * (cx - x)))
+                        # distance_sum = (dz + dy + (sx * (cx - x)))
                         # try:
-                        #     dist_center = (1 - np.exp(-1/distance_sum)) * 0.2 #spatial_weight
+                        #     dist_center = (1 - np.exp(-1/distance_sum)) * spatial_weight
                         # except:
-                        #     dist_center = (1 - np.exp(-1/0.01)) * 0.2 #spatial_weight
-                        dist_center = 0
-                        # dist_color = 0
-                        # for c in range(3, n_features):
-                        #     dist_color += (image_zyx[z, y, x, c - 3]
-                        #                     - segments[k, c]) ** 2
-                        # histogram = np.histogram(current_segment)
-                        count = np.count_nonzero(current_segment == np.asarray(image_zyx[z, y, x])[0])
-                        # print(count)
-                        frequence = count/len(current_segment)
-                        dist_color = gg.function_value(np.asarray(image_zyx[z, y, x])[0])#(1-np.exp(-1*frequence)) * 0.8 #(1 - spatial_weight)
+                        #     dist_center = (1 - np.exp(-1/0.01)) * spatial_weight
+                        spatial_distance = np.sqrt((cx-x)**2 + (cy-y)**2)
+                        dist_center = (spatial_distance/sx)**2 * spatial_weight
+
+                        try:
+                            dist_center = (1 - np.exp(-1/dist_center)) * spatial_weight
+                        except:
+                            dist_center = (1 - np.exp(-1/0.01)) * spatial_weight
+
+                        frequence = gg.function_value(np.asarray(image_zyx[z, y, x])[0])
+                        dist_color = (1-np.exp(-1*frequence)) * (1 - spatial_weight)
+                        # dist_color = frequence  * (1 - spatial_weight)
+                        # print(f'Dist_center: {dist_center}, Dist_color: {dist_color}, Frequence: {frequence}')
+
                         # print(dist_color)
                         # dist_color = gg.function_value(np.asarray(image_zyx[z, y, x])[0])#(1 - spatial_weight) * (1-np.exp(-1*gg.function_value(np.asarray(image_zyx[z, y, x])[0])))
                         if slic_zero:
@@ -197,21 +203,23 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             dist_center += dist_color / max_dist_color[k]
                         else:
                             if not only_dist:
-                                if int(i)==0:
-                                    try:
-                                        dist_center = (1 - np.exp(-1/distance_sum)) * 0.2 #spatial_weight
-                                    except:
-                                        dist_center = (1 - np.exp(-1/0.01)) * 0.2 #spatial_weight
-                                else:
+                                if True:
                                     dist_center += dist_color
+                                else:
+                                    print(dist_color)
+                                # else:
+                                #     print('PRIMEIRA ITERAÇÃO')
+                                #     dist_center = distance_sum**2 * spatial_weight
                                 # print(dist_center > 0 and dist_center < 1)
+
+                        # dist_center = dist_color
 
                         current_distance = np.asarray(distance[z, y, x])
 
                         #assign new distance and new label to voxel if closer than other voxels
                         if current_distance < dist_center:
                             print(f'Distância atual: {current_distance}. Distância calculada: {dist_center}')
-                            print(f'Estou na interação {i} e o valor do pixel mudou para a classe {k}')
+                            print(f'Estou na iteração {i} e o valor do pixel mudou da classe {nearest_segments[z,y,x]} para a classe {k}')
                             nearest_segments[z, y, x] = int(k)
                             distance[z, y, x] = dist_center
                             #record change
