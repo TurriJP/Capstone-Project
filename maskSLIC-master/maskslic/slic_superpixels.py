@@ -279,6 +279,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         sigma = np.array(sigma, dtype=np.double)
     if (sigma > 0).any():
         # add zero smoothing for multichannel dimension
+        print('entrei no if do sigma')
         sigma = list(sigma) + [0]
         image = ndi.gaussian_filter(image, sigma)
 
@@ -286,6 +287,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         if image.shape[-1] != 3 and convert2lab:
             raise ValueError("Lab colorspace conversion requires a RGB image.")
         elif image.shape[-1] == 3:
+            print('entrei no if do rgb2lab')
             image = rgb2lab(image)
 
     depth, height, width = image.shape[:3]
@@ -337,7 +339,9 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     step = float(max((step_z, step_y, step_x)))
     ratio = 1.0 / compactness
 
-    image = np.ascontiguousarray(image * ratio, dtype=np.double)
+    # image = np.ascontiguousarray(image * ratio, dtype=np.double)
+    image = np.ascontiguousarray(image, dtype=np.double)
+
     mask = np.ascontiguousarray(mask, dtype=np.int32)
 
     segments_old = np.copy(segments)
