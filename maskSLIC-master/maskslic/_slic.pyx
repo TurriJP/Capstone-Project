@@ -11,6 +11,7 @@ See licence.txt for more details
 """
 import asyncio
 import functools
+import multiprocessing.pool
 #cython: cdivision=True
 #cython: boundscheck=False
 #cython: nonecheck=False
@@ -39,6 +40,45 @@ def background(f):
 }))
 
     return wrapped
+
+def task_x(x, y, k, gg, mask, cx, cy, sx, spatial_weight, image_zyx, distance, nearest_segments, change):
+    if mask[0, y, x] == 0:
+        nearest_segments[0, y, x] = -1
+        return
+
+    # distance_sum = (dz + dy + (sx * (cx - x)))
+    # try:
+    #     dist_center = (1 - np.exp(-1/distance_sum)) * spatial_weight
+    # except:
+    #     dist_center = spatial_weight
+    spatial_distance = np.sqrt((cx-x)**2 + (cy-y)**2)
+    dist_center = (spatial_distance/sx)**2 * spatial_weight
+
+    try:
+        dist_center = (1 - np.exp(-1/dist_center)) * spatial_weight
+    except:
+        dist_center = spatial_weight
+
+    frequence = gg.function_value(np.asarray(image_zyx[0, y, x])[0])
+    dist_color = (1-np.exp(-1*frequence)) * (1 - spatial_weight)
+    dist_center += dist_color
+
+
+    current_distance = np.asarray(distance[0, y, x])
+
+    #assign new distance and new label to voxel if closer than other voxels
+    if current_distance < dist_center:
+        # print(f'Distância atual: {current_distance}. Distância calculada: {dist_center}')
+        nearest_segments[0, y, x] = int(k)
+        distance[0, y, x] = dist_center
+        #record change
+        change +=1
+
+def task_y(y, k, gg:GeneralizedGamma, x_min, x_max, mask, cx, cy, sx, spatial_weight, image_zyx, distance, nearest_segments, change):
+    global pool
+    args = ((x, y, k, gg, mask, cx, cy, sx, spatial_weight, image_zyx, distance, nearest_segments, change) for x in range(x_min, x_max))
+    result = pool.starmap(task_x, args)
+    return result
 
 # @background
 def _slic_cython(double[:, :, :, ::1] image_zyx,
@@ -95,6 +135,9 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
     and get back a contiguous block of memory. This is better both for
     performance and for readability.
     """
+
+    global pool
+    pool = multiprocessing.pool.ThreadPool(100)
 
     # initialize on grid
     cdef Py_ssize_t depth, height, width
@@ -164,66 +207,12 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
             # print(np.asarray(current_segment))
             gg = GeneralizedGamma(current_segment)
 
-            for z in range(z_min, z_max):
-                dz = (sz * (cz - z)) ** 2
-                for y in range(y_min, y_max):
-                    dy = (sy * (cy - y)) ** 2
-                    for x in range(x_min, x_max):
-                        # if np.asarray(image_zyx[z,y,x])[0] > 100.0:
-                        #     print(np.asarray(image_zyx[z,y,x])[0])
+            args = ((y, k, gg, x_min, x_max, mask, cx, cy, sx, spatial_weight, image_zyx, distance, nearest_segments, change) for y in range(y_min, y_max))
+            result = pool.starmap(task_y, args)
+            # print(result)
+            # change +=result
 
-
-                        if mask[z, y, x] == 0:
-                            nearest_segments[z, y, x] = -1
-                            continue
-
-                        # print((dz + dy + (sx * (cx - x))))
-                        # distance_sum = (dz + dy + (sx * (cx - x)))
-                        # try:
-                        #     dist_center = (1 - np.exp(-1/distance_sum)) * spatial_weight
-                        # except:
-                        #     dist_center = (1 - np.exp(-1/0.01)) * spatial_weight
-                        spatial_distance = np.sqrt((cx-x)**2 + (cy-y)**2)
-                        dist_center = (spatial_distance/sx)**2 * spatial_weight
-
-                        try:
-                            dist_center = (1 - np.exp(-1/dist_center)) * spatial_weight
-                        except:
-                            dist_center = (1 - np.exp(-1/0.01)) * spatial_weight
-
-                        frequence = gg.function_value(np.asarray(image_zyx[z, y, x])[0])
-                        dist_color = (1-np.exp(-1*frequence)) * (1 - spatial_weight)
-                        # dist_color = frequence  * (1 - spatial_weight)
-                        # print(f'Dist_center: {dist_center}, Dist_color: {dist_color}, Frequence: {frequence}')
-
-                        # print(dist_color)
-                        # dist_color = gg.function_value(np.asarray(image_zyx[z, y, x])[0])#(1 - spatial_weight) * (1-np.exp(-1*gg.function_value(np.asarray(image_zyx[z, y, x])[0])))
-                        if slic_zero:
-                            # TODO not implemented yet for slico
-                            dist_center += dist_color / max_dist_color[k]
-                        else:
-                            if not only_dist:
-                                if True:
-                                    dist_center += dist_color
-                                else:
-                                    print(dist_color)
-                                # else:
-                                #     print('PRIMEIRA ITERAÇÃO')
-                                #     dist_center = distance_sum**2 * spatial_weight
-                                # print(dist_center > 0 and dist_center < 1)
-
-                        # dist_center = dist_color
-
-                        current_distance = np.asarray(distance[z, y, x])
-
-                        #assign new distance and new label to voxel if closer than other voxels
-                        if current_distance < dist_center:
-                            print(f'Distância atual: {current_distance}. Distância calculada: {dist_center}')
-                            print(f'Estou na iteração {i} e o valor do pixel mudou da classe {nearest_segments[z,y,x]} para a classe {k}')
-                            nearest_segments[z, y, x] = int(k)
-                            distance[z, y, x] = dist_center
-                            #record change
-                            change = 1
+            # print(change)
 
         # stop if no pixel changed its segment
         if change == 0:
@@ -287,6 +276,8 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
     print(np.argmax(np.asarray(distance)[0][0]))
     print(len(np.asarray(distance)[0][0]))
     print(np.asarray(nearest_segments))
+
+    pool.close()
 
     return np.asarray(nearest_segments)
 

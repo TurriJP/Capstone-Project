@@ -19,12 +19,12 @@ vv = imread('data/VV_VH.tif')
 
 def bounded_test(vv):
 
-    image = vv[300:500, 400:600]
+    image = vv[300:500, 300:500]
 
     mean = np.mean(image)
     image *= 1/mean
 
-    vv_slic = seg.slic(image, n_segments=100, enforce_connectivity=True, max_iter=10)
+    vv_slic = seg.slic(image, n_segments=100, enforce_connectivity=False, max_iter=10)
     # plt.imshow(vv_slic)
     plt.imsave('export/result.png', vv_slic)
 
