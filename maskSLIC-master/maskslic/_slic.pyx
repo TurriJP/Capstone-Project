@@ -177,7 +177,8 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
 
     # The reference implementation (Achanta et al.) calls this invxywt
     cdef double spatial_weight = float(1) / (step ** 2)
-    spatial_weight = 0.0001
+    # spatial_weight = 0.0001
+    spatial_weight = 10**(-1 *(width/100))
 
     print(f'Spatial weight: {spatial_weight}')
 
