@@ -1,3 +1,4 @@
+from datetime import datetime
 import rasterio
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,17 +20,25 @@ vv = imread('data/VV_VH.tif')
 
 def bounded_test(vv):
 
-    image = vv[300:500, 400:600]
+    x1 = 400
+    y1 = 400
+    x2 = 700
+    y2 = 700
+    image = vv[x1:x2, y1:y2]
 
     mean = np.mean(image)
     image *= 1/mean
 
-    vv_slic = seg.slic(image, n_segments=100, enforce_connectivity=True, max_iter=10)
+    k=100
+
+    vv_slic = seg.slic(image, n_segments=k, enforce_connectivity=False, max_iter=10)
+
+    info = f'LADO_{str(x2-x1)}_K_{k}_{str(datetime.now())}'
     # plt.imshow(vv_slic)
-    plt.imsave('export/result.png', vv_slic)
+    plt.imsave(f'export/result_{info}.png', vv_slic)
 
     image_with_bounds = seg2.mark_boundaries(image=image/np.max(image), label_img=vv_slic)
-    plt.imsave('export/bounded_result.png', image_with_bounds)
+    plt.imsave(f'export/bounded_result_{info}.png', image_with_bounds)
 
 def rgb():
     vv_src = rasterio.open('data/imagem_RGB.png')
