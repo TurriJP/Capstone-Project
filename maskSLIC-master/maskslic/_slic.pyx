@@ -24,6 +24,7 @@ cimport numpy as np
 from skimage.util import regular_grid
 
 from .helpers import GeneralizedGamma
+from .chelpers cimport GeneralGamma
 
 def background(f):
     def wrapped(*args, **kwargs):
