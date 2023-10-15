@@ -9,7 +9,7 @@ import skimage2.segmentation as seg2
 
 #vv_src = rasterio.open('data/VV_VH.tif')
 #vv = vv_src.read()
-vv = imread('data/VV_VH.tif')
+vv = imread('data/chelsea.png', as_gray=True    )#/VV_VH.tif')
 # vv = vv[:3, :, :]
 # vv = vv.transpose(1, 2, 0)
 
@@ -26,8 +26,8 @@ def bounded_test(vv):
     y2 = 400
     image = vv[x1:x2, y1:y2]
 
-    mean = np.mean(image)
-    image *= 1/mean
+    # mean = np.mean(image)
+    # image *= 1/mean
 
     k=1000
 
