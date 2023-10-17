@@ -1,11 +1,6 @@
-import math
-from uuid import uuid1
 
 from scipy.optimize import fsolve
-from scipy import special
 import numpy as np
-import matplotlib.pyplot as plt
-
 cimport scipy.special.cython_special
 cimport numpy as np
 from libc.math cimport fabs
