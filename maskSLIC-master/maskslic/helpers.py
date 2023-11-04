@@ -32,6 +32,9 @@ class GeneralizedGamma():
     def equations(self, vars):
         # Define the system of equations
         sigma, kappa, v = vars
+        if sigma <0: sigma = 0.01
+        if kappa <0: kappa = 0.01
+        if v<0: v = 0.01
         eq1 = -self.c1 + math.log(sigma) + (special.polygamma(0, kappa) - math.log(kappa))/v  
         eq2 = -self.c2 + special.polygamma(1, kappa)/v**2
         eq3 = -self.c3 + special.polygamma(2, kappa)/v**3

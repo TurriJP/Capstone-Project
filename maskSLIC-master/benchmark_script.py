@@ -8,7 +8,7 @@ import skimage2.segmentation as seg2
 
 #vv_src = rasterio.open('data/VV_VH.tif')
 #vv = vv_src.read()
-vv = imread('data/VV_VH.tif')
+vv = imread('data/zoom_in.png')
 # vv = vv[:3, :, :]
 # vv = vv.transpose(1, 2, 0)
 
@@ -21,14 +21,14 @@ def bounded_test(vv):
 
     image = vv[300:500, 400:600]
 
-    mean = np.mean(image)
-    image *= 1/mean
+    # mean = np.mean(image)
+    # image *= 1/mean
 
     vv_slic = seg.slic(image, n_segments=100, enforce_connectivity=True, max_iter=10)
     # plt.imshow(vv_slic)
     plt.imsave('export/result.png', vv_slic)
 
-    image_with_bounds = seg2.mark_boundaries(image=image/np.max(image), label_img=vv_slic)
+    image_with_bounds = seg2.mark_boundaries(image=image, label_img=vv_slic)
     plt.imsave('export/bounded_result.png', image_with_bounds)
 
 def rgb():
