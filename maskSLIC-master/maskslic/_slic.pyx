@@ -10,6 +10,7 @@ See licence.txt for more details
 
 """
 import ot
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 #cython: cdivision=True
 #cython: boundscheck=False
 #cython: nonecheck=False
@@ -26,40 +27,52 @@ from skimage.util import regular_grid
 cimport scipy.special.cython_special
 from cython.cimports.libc.math import log, fabs
 
+cdef extern from "stdlib.h":
+    void* malloc(size_t size)
+    void free(void* ptr)
+
 cdef double trace (double [:,:] m) nogil:
     return m[0][0] + m[1][1]
 
 cdef double det (double [:,:] m) nogil:
     return (m[0][0] * m[1][1]) - (m[0][1] * m[1][0])
 
-cdef double[:,:] inv (double [:,:] m) nogil:
+cdef double[:,:] inv (double [:,:] m, double[:,:] ret) nogil:
+    # cdef double *ret_ptr = <double*>malloc(4 * sizeof(double))
+    # if not ret_ptr:
+    #     raise MemoryError("Failed to allocate memory for ret")
     cdef double coef = 1 / det(m)
-    cdef double[:,:] ret
+    # ret = <double[:2,:2]>ret_ptr
     # cdef double values [2,2] 
     ret[0][0] = coef * m[1][1]
     ret[0][1] = coef * m[1][0] * -1
     ret[1][0] = coef * m[0][1] * -1
     ret[1][1] = coef * m[0][0]
     # ret = values
+    # free(ret_ptr)
     return ret 
     # ret = [[coef *     m[1][1], coef * m[0][1] * -1], [coef * m[1][0] * -1, coef * m[0][0]]]
     # return [[coef * m[0][0], coef * m[0][1] * -1, [coef]]]
 
-cdef double[:,:] dot (double[:,:] m, double[:,:] n) nogil:
-    cdef double[:,:] ret 
+cdef double[:,:] dot (double[:,:] m, double[:,:] n, double[:,:] ret) nogil:
+    # cdef double *ret_ptr = <double*>malloc(4 * sizeof(double))
+    # if not ret_ptr:
+    #     raise MemoryError("Failed to allocate memory for ret")
+    # ret = <double[:2,:2]>ret_ptr
     # cdef double values[2][2]
     ret[0][0] = (m[0][0] * n[0][0]) + (m[0][1] * n[1][0])
     ret[0][1] = (m[0][0] * n[0][1]) + (m[0][1] * n[1][1])
     ret[1][0] = (m[1][0] * n[0][0]) + (m[1][1] * n[1][0])
     ret[1][1] = (m[1][0] * n[0][1]) + (m[1][1] * n[1][1])
     # ret = values
+    # free(ret_ptr)
     return ret 
 
-cdef double wishart_distance_cython (double [:,:] V, double [:,:] T) nogil:
+cdef double wishart_distance_cython (double [:,:] V, double [:,:] T, double[:,:] buffer) nogil:
     cdef double det_V = det(V)
     cdef double ln_det_V = log(fabs(det_V))
-    cdef double[:,:] inv_V = inv(V)
-    cdef double trace_term = trace(dot(inv_V, T)) 
+    cdef double[:,:] inv_V = inv(V, buffer)
+    cdef double trace_term = trace(dot(inv_V, T, buffer)) 
     cdef double ret = ln_det_V + trace_term
     return ret
 
@@ -166,6 +179,9 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
     and get back a contiguous block of memory. This is better both for
     performance and for readability.
     """
+    cdef double[:,:] pixel = np.empty((2, 2), dtype=np.double)
+    cdef double[:,:] center = np.empty((2, 2), dtype=np.double)
+    cdef double[:,:] buffer = np.empty((2, 2), dtype=np.double)
 
     # initialize on grid
     cdef Py_ssize_t depth, height, width
@@ -228,9 +244,9 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
             x_min = <Py_ssize_t>max(cx - 2 * step_x, 0)
             x_max = <Py_ssize_t>min(cx + 2 * step_x + 1, width)
 
-            bool_mask = nearest_segments == int(k)
-            selected_pixels = image_zyx[bool_mask]
-            b = np.asarray([np.mean(np.asarray(selected_pixels))])
+            # bool_mask = nearest_segments == int(k)
+            # selected_pixels = image_zyx[bool_mask]
+            # b = np.asarray([np.mean(np.asarray(selected_pixels))])
 
             for z in range(z_min, z_max):
                 dz = (sz * (cz - z)) ** 2
@@ -260,9 +276,18 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                         i_z = int(cz)
                         i_y = int(cy)
                         i_x = int(cx)
-                        a = np.asarray(image_zyx[z, y, x])
-                        b = np.asarray(image_zyx[i_z, i_y, i_x])
-                        dist_color = wishart_distance(b, a)#snll_distance_cython(b, a)#selected_pixels)
+                        # a = np.asarray(image_zyx[z, y, x])
+                        # b = np.asarray(image_zyx[i_z, i_y, i_x])
+                        pixel[0][0] = image_zyx[z,y,x,0]
+                        pixel[0][1] = image_zyx[z,y,x,1]
+                        pixel[1][0] = image_zyx[z,y,x,2]
+                        pixel[1][1] = image_zyx[z,y,x,1]
+                        center[0][0] = image_zyx[i_z,i_y,i_x,0]
+                        center[0][1] = image_zyx[i_z,i_y,i_x,1]
+                        center[1][0] = image_zyx[i_z,i_y,i_x,2]
+                        center[1][1] = image_zyx[i_z,i_y,i_x,1]
+                        dist_color = wishart_distance_cython(center, pixel, buffer)
+                        # dist_color = wishart_distance(b, a)#snll_distance_cython(b, a)#selected_pixels)
                         if slic_zero:
                             # TODO not implemented yet for slico
                             dist_center += dist_color / max_dist_color[k]
