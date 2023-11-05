@@ -9,7 +9,7 @@ Modifications (C) Benjamin Irving
 See licence.txt for more details
 
 """
-
+import ot
 #cython: cdivision=True
 #cython: boundscheck=False
 #cython: nonecheck=False
@@ -37,6 +37,28 @@ cdef snll_distance(p, q):
 
     return snll
 
+def wishart_distance(V, T):
+    V = [[V[0], V[1]],[V[2], V[0]]]
+    T = [[T[0], T[1]],[T[2], T[0]]]
+    # print(V)
+    # print(T)
+    # Calculate the determinant of V
+    det_V = np.linalg.det(V)
+
+    # Calculate the natural logarithm of the determinant
+    ln_det_V = np.log(abs(det_V))
+
+    # Calculate the inverse of V
+    inv_V = np.linalg.inv(V)
+
+    # Calculate the trace of the product of V^-1 and T
+    trace_term = np.trace(np.dot(inv_V, T))
+
+    # Calculate the Wasserstein distance
+    d_W = ln_det_V + trace_term
+
+    return d_W
+
 cdef double snll_distance_cython(np.ndarray[double] p, np.ndarray[double] q):
     cdef double kl_pq = 0.0
     cdef double kl_qp = 0.0
@@ -48,6 +70,8 @@ cdef double snll_distance_cython(np.ndarray[double] p, np.ndarray[double] q):
 
     snll = (kl_pq + kl_qp) / 2.0
     return snll
+
+
 
 
 def _slic_cython(double[:, :, :, ::1] image_zyx,
@@ -195,16 +219,21 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                         #                 selected_pixels[i, j, k] = image_zyx[i, j, k]
 
 
+                        i_z = int(cz)
+                        i_y = int(cy)
+                        i_x = int(cx)
                         a = np.asarray(image_zyx[z, y, x])
-                        dist_color = snll_distance(b, a)#selected_pixels)
+                        b = np.asarray(image_zyx[i_z, i_y, i_x])
+                        dist_color = wishart_distance(b, a)#snll_distance_cython(b, a)#selected_pixels)
                         if slic_zero:
                             # TODO not implemented yet for slico
                             dist_center += dist_color / max_dist_color[k]
                         else:
                             if not only_dist:
                                 # dist_center += dist_color
-                                dist_center = dist_color#(dist_center/step_x) + (dist_color/(0.001)) 
-                                print(dist_color)
+                                # print(dist_center/step_x)
+                                dist_center = (dist_center/step)*5 + dist_color 
+                                # print(dist_color)
 
                         #assign new distance and new label to voxel if closer than other voxels
                         if distance[z, y, x] > dist_center:
