@@ -34,25 +34,29 @@ cdef double det (double [:,:] m) nogil:
 
 cdef double[:,:] inv (double [:,:] m) nogil:
     cdef double coef = 1 / det(m)
-    cdef double[:,:] ret = [[0,0],[0,0]]
+    cdef double[:,:] ret
+    # cdef double values [2,2] 
     ret[0][0] = coef * m[1][1]
     ret[0][1] = coef * m[1][0] * -1
     ret[1][0] = coef * m[0][1] * -1
     ret[1][1] = coef * m[0][0]
+    # ret = values
     return ret 
     # ret = [[coef *     m[1][1], coef * m[0][1] * -1], [coef * m[1][0] * -1, coef * m[0][0]]]
     # return [[coef * m[0][0], coef * m[0][1] * -1, [coef]]]
 
-cdef double dot (double [:,:] m, double [:,:] n) nogil:
-    cdef double[:,:] ret = [[0,0],[0,0]]
+cdef double[:,:] dot (double[:,:] m, double[:,:] n) nogil:
+    cdef double[:,:] ret 
+    # cdef double values[2][2]
     ret[0][0] = (m[0][0] * n[0][0]) + (m[0][1] * n[1][0])
     ret[0][1] = (m[0][0] * n[0][1]) + (m[0][1] * n[1][1])
     ret[1][0] = (m[1][0] * n[0][0]) + (m[1][1] * n[1][0])
     ret[1][1] = (m[1][0] * n[0][1]) + (m[1][1] * n[1][1])
+    # ret = values
     return ret 
 
 cdef double wishart_distance_cython (double [:,:] V, double [:,:] T) nogil:
-    cdef double det_V = det(V, T)
+    cdef double det_V = det(V)
     cdef double ln_det_V = log(fabs(det_V))
     cdef double[:,:] inv_V = inv(V)
     cdef double trace_term = trace(dot(inv_V, T)) 
