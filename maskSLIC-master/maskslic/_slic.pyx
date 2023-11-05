@@ -32,60 +32,44 @@ cdef extern from "stdlib.h":
     void* malloc(size_t size)
     void free(void* ptr)
 
-cdef double trace (double [:,:] m) nogil:
-    return m[0][0] + m[1][1]
+cdef double trace (double[::1] m) nogil:
+    return m[0] + m[2]
 
-cdef double det (double [:,:] m) nogil:
-    # printf("%f\n", m[0][0])
-    # printf("%f\n", m[1][1])
-    # printf("%f\n", m[0][1])
-    # printf("%f\n", m[1][0])
-    cdef double value = (m[0][0] * m[1][1]) - (m[0][1] * m[1][0])
+cdef double det (double[::1] m) nogil:
+    cdef double value = (m[0] * m[3]) - (m[1] * m[2])
     if value == 0.0:
-        printf("%f\n", m[0][0])
-        printf("%f\n", m[1][1])
-        printf("%f\n", m[0][1])
-        printf("%f\n", m[1][0])
-    return (m[0][0] * m[1][1]) - (m[0][1] * m[1][0])
+        printf("%f\n", m[0])
+        printf("%f\n", m[3])
+        printf("%f\n", m[1])
+        printf("%f\n", m[2])
+    return value
 
-cdef double[:,:] inv (double [:,:] m, double[:,:] ret) nogil:
-    # cdef double *ret_ptr = <double*>malloc(4 * sizeof(double))
-    # if not ret_ptr:
-    #     raise MemoryError("Failed to allocate memory for ret")
+cdef double[::1] inv (double[::1] m, double[::1]ret) nogil:
     cdef double determinant = det(m)
     if determinant ==  0.0:
         determinant = 0.01
     cdef double coef = 1 / determinant
-    # ret = <double[:2,:2]>ret_ptr
-    # cdef double values [2,2] 
-    ret[0][0] = coef * m[1][1]
-    ret[0][1] = coef * m[1][0] * -1
-    ret[1][0] = coef * m[0][1] * -1
-    ret[1][1] = coef * m[0][0]
-    # ret = values
-    # free(ret_ptr)
-    return ret 
-    # ret = [[coef *     m[1][1], coef * m[0][1] * -1], [coef * m[1][0] * -1, coef * m[0][0]]]
-    # return [[coef * m[0][0], coef * m[0][1] * -1, [coef]]]
 
-cdef double[:,:] dot (double[:,:] m, double[:,:] n, double[:,:] ret) nogil:
-    # cdef double *ret_ptr = <double*>malloc(4 * sizeof(double))
-    # if not ret_ptr:
-    #     raise MemoryError("Failed to allocate memory for ret")
-    # ret = <double[:2,:2]>ret_ptr
-    # cdef double values[2][2]
-    ret[0][0] = (m[0][0] * n[0][0]) + (m[0][1] * n[1][0])
-    ret[0][1] = (m[0][0] * n[0][1]) + (m[0][1] * n[1][1])
-    ret[1][0] = (m[1][0] * n[0][0]) + (m[1][1] * n[1][0])
-    ret[1][1] = (m[1][0] * n[0][1]) + (m[1][1] * n[1][1])
-    # ret = values
-    # free(ret_ptr)
+    ret[0] = coef * m[3]
+    ret[1] = coef * m[2] * -1
+    ret[2] = coef * m[1] * -1
+    ret[3] = coef * m[0]
+
     return ret 
 
-cdef double wishart_distance_cython (double [:,:] V, double [:,:] T, double[:,:] buffer) nogil:
+cdef double[::1] dot (double[::1] m, double[::1] n, double[::1] ret) nogil:
+
+    ret[0] = (m[0] * n[0]) + (m[1] * n[2])
+    ret[1] = (m[0] * n[1]) + (m[1] * n[3])
+    ret[2] = (m[2] * n[0]) + (m[3] * n[2])
+    ret[3] = (m[2] * n[1]) + (m[3] * n[3])
+
+    return ret 
+
+cdef double wishart_distance_cython (double[::1] V, double[::1] T,double[::1] buffer) nogil:
     cdef double det_V = det(V)
     cdef double ln_det_V = log(fabs(det_V))
-    cdef double[:,:] inv_V = inv(V, buffer)
+    cdef double[::1] inv_V = inv(V, buffer)
     cdef double trace_term = trace(dot(inv_V, T, buffer)) 
     cdef double ret = ln_det_V + trace_term
     return ret
@@ -195,7 +179,7 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
     """
     cdef double[:,:] pixel = np.empty((2, 2), dtype=np.double)
     cdef double[:,:] center = np.empty((2, 2), dtype=np.double)
-    cdef double[:,:] buffer = np.empty((2, 2), dtype=np.double)
+    # cdef double[:,:] buffer = np.empty((2, 2), dtype=np.double)
 
     # initialize on grid
     cdef Py_ssize_t depth, height, width
@@ -236,124 +220,77 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
     # The reference implementation (Achanta et al.) calls this invxywt
     cdef double spatial_weight = float(1) / (step ** 2)
 
-    # with nogil:
-    for i in range(max_iter):
-        print(i)
-        change = 0
-        distance[:, :, :] = DBL_MAX
+    cdef int i_z, i_y, i_x
+    cdef double[:, :, :, ::1] buffer \
+        = np.empty((depth, height, width, n_features), dtype=np.double)
 
-        # assign pixels to segments
-        for k in range(n_segments):
+    with nogil:
+        for i in range(max_iter):
+            printf("%d\n", i)
+            change = 0
+            distance[:, :, :] = DBL_MAX
 
-            # segment coordinate centers
-            cz = segments[k, 0]
-            cy = segments[k, 1]
-            cx = segments[k, 2]
+            # assign pixels to segments
+            for k in range(n_segments):
 
-            # compute windows
-            z_min = <Py_ssize_t>max(cz - 2 * step_z, 0)
-            z_max = <Py_ssize_t>min(cz + 2 * step_z + 1, depth)
-            y_min = <Py_ssize_t>max(cy - 2 * step_y, 0)
-            y_max = <Py_ssize_t>min(cy + 2 * step_y + 1, height)
-            x_min = <Py_ssize_t>max(cx - 2 * step_x, 0)
-            x_max = <Py_ssize_t>min(cx + 2 * step_x + 1, width)
+                # segment coordinate centers
+                cz = segments[k, 0]
+                cy = segments[k, 1]
+                cx = segments[k, 2]
 
-            # bool_mask = nearest_segments == int(k)
-            # selected_pixels = image_zyx[bool_mask]
-            # b = np.asarray([np.mean(np.asarray(selected_pixels))])
+                # compute windows
+                z_min = <Py_ssize_t>max(cz - 2 * step_z, 0)
+                z_max = <Py_ssize_t>min(cz + 2 * step_z + 1, depth)
+                y_min = <Py_ssize_t>max(cy - 2 * step_y, 0)
+                y_max = <Py_ssize_t>min(cy + 2 * step_y + 1, height)
+                x_min = <Py_ssize_t>max(cx - 2 * step_x, 0)
+                x_max = <Py_ssize_t>min(cx + 2 * step_x + 1, width)
 
-            for z in range(z_min, z_max):
-                dz = (sz * (cz - z)) ** 2
-                for y in range(y_min, y_max):
-                    dy = (sy * (cy - y)) ** 2
-                    for x in range(x_min, x_max):
+                for z in range(z_min, z_max):
+                    dz = (sz * (cz - z)) ** 2
+                    for y in range(y_min, y_max):
+                        dy = (sy * (cy - y)) ** 2
+                        for x in range(x_min, x_max):
 
-                        if mask[z, y, x] == 0:
-                            nearest_segments[z, y, x] = -1
-                            continue
+                            if mask[z, y, x] == 0:
+                                nearest_segments[z, y, x] = -1
+                                continue
 
-                        dist_center = (dz + dy + (sx * (cx - x)) ** 2) * spatial_weight
-                        dist_color = 0
-                        # for c in range(3, n_features):
-                        #     dist_color += (image_zyx[z, y, x, c - 3]
-                        #                     - segments[k, c]) ** 2
-                        # selected_pixels = np.empty(image_zyx.shape, dtype=image_zyx.dtype)
+                            dist_center = (dz + dy + (sx * (cx - x)) ** 2) * spatial_weight
+                            dist_color = 0
 
-                        # # Use a `for` loop to select the pixels based on the class label
-                        # for i in range(image_zyx.shape[0]):
-                        #     for j in range(image_zyx.shape[1]):
-                        #         for k in range(image_zyx.shape[2]):
-                        #             if nearest_segments[i, j, k] == n:
-                        #                 selected_pixels[i, j, k] = image_zyx[i, j, k]
+                            i_z = <int> cz
+                            i_y = <int> cy
+                            i_x = <int> cx
 
+                            dist_color = wishart_distance_cython(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x], buffer[z,y,x])
+                            # dist_color = wishart_distance(b, a)#snll_distance_cython(b, a)#selected_pixels)
+                            if slic_zero:
+                                # TODO not implemented yet for slico
+                                dist_center += dist_color / max_dist_color[k]
+                            else:
+                                if not only_dist:
+                                    # dist_center += dist_color
+                                    # print(dist_center/step_x)
+                                    dist_center = (dist_center/step)*5 + dist_color 
+                                    # print(dist_color)
 
-                        i_z = int(cz)
-                        i_y = int(cy)
-                        i_x = int(cx)
-                        # a = np.asarray(image_zyx[z, y, x])
-                        # b = np.asarray(image_zyx[i_z, i_y, i_x])
-                        pixel[0][0] = image_zyx[z,y,x,0]
-                        pixel[0][1] = image_zyx[z,y,x,1]
-                        pixel[1][0] = image_zyx[z,y,x,2]
-                        pixel[1][1] = image_zyx[z,y,x,1]
-                        center[0][0] = image_zyx[i_z,i_y,i_x,0]
-                        center[0][1] = image_zyx[i_z,i_y,i_x,1]
-                        center[1][0] = image_zyx[i_z,i_y,i_x,2]
-                        center[1][1] = image_zyx[i_z,i_y,i_x,1]
-                        dist_color = wishart_distance_cython(center, pixel, buffer)
-                        # dist_color = wishart_distance(b, a)#snll_distance_cython(b, a)#selected_pixels)
-                        if slic_zero:
-                            # TODO not implemented yet for slico
-                            dist_center += dist_color / max_dist_color[k]
-                        else:
-                            if not only_dist:
-                                # dist_center += dist_color
-                                # print(dist_center/step_x)
-                                dist_center = (dist_center/step)*5 + dist_color 
-                                # print(dist_color)
+                            #assign new distance and new label to voxel if closer than other voxels
+                            if distance[z, y, x] > dist_center:
+                                nearest_segments[z, y, x] = k
+                                distance[z, y, x] = dist_center
+                                #record change
+                                change = 1
 
-                        #assign new distance and new label to voxel if closer than other voxels
-                        if distance[z, y, x] > dist_center:
-                            nearest_segments[z, y, x] = k
-                            distance[z, y, x] = dist_center
-                            #record change
-                            change = 1
+            # stop if no pixel changed its segment
+            if change == 0:
+                break
 
-        # stop if no pixel changed its segment
-        if change == 0:
-            break
+            # recompute segment centers
 
-        # recompute segment centers
-
-        # sum features for all segments
-        n_segment_elems[:] = 0
-        segments[:, :] = 0
-        for z in range(depth):
-            for y in range(height):
-                for x in range(width):
-
-                    if mask[z, y, x] == 0:
-                        continue
-
-                    if nearest_segments[z, y, x] == -1:
-                        continue
-
-                    k = nearest_segments[z, y, x]
-
-                    n_segment_elems[k] += 1
-                    segments[k, 0] += z
-                    segments[k, 1] += y
-                    segments[k, 2] += x
-                    for c in range(3, n_features):
-                        segments[k, c] += image_zyx[z, y, x, c - 3]
-
-        # divide by number of elements per segment to obtain mean
-        for k in range(n_segments):
-            for c in range(n_features):
-                segments[k, c] /= n_segment_elems[k]
-
-        # If in SLICO mode, update the color distance maxima
-        if slic_zero:
+            # sum features for all segments
+            n_segment_elems[:] = 0
+            segments[:, :] = 0
             for z in range(depth):
                 for y in range(height):
                     for x in range(width):
@@ -365,16 +302,42 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             continue
 
                         k = nearest_segments[z, y, x]
-                        dist_color = 0
 
+                        n_segment_elems[k] += 1
+                        segments[k, 0] += z
+                        segments[k, 1] += y
+                        segments[k, 2] += x
                         for c in range(3, n_features):
-                            dist_color += (image_zyx[z, y, x, c - 3] -
-                                            segments[k, c]) ** 2
+                            segments[k, c] += image_zyx[z, y, x, c - 3]
 
-                        # The reference implementation seems to only change
-                        # the color if it increases from previous iteration
-                        if max_dist_color[k] < dist_color:
-                            max_dist_color[k] = dist_color
+            # divide by number of elements per segment to obtain mean
+            for k in range(n_segments):
+                for c in range(n_features):
+                    segments[k, c] /= n_segment_elems[k]
+
+            # If in SLICO mode, update the color distance maxima
+            if slic_zero:
+                for z in range(depth):
+                    for y in range(height):
+                        for x in range(width):
+
+                            if mask[z, y, x] == 0:
+                                continue
+
+                            if nearest_segments[z, y, x] == -1:
+                                continue
+
+                            k = nearest_segments[z, y, x]
+                            dist_color = 0
+
+                            for c in range(3, n_features):
+                                dist_color += (image_zyx[z, y, x, c - 3] -
+                                                segments[k, c]) ** 2
+
+                            # The reference implementation seems to only change
+                            # the color if it increases from previous iteration
+                            if max_dist_color[k] < dist_color:
+                                max_dist_color[k] = dist_color
 
     return np.asarray(nearest_segments)
 
