@@ -26,6 +26,7 @@ from skimage.util import regular_grid
 # from scipy.special import kl_div
 cimport scipy.special.cython_special
 from cython.cimports.libc.math import log, fabs
+from libc.stdio cimport printf
 
 cdef extern from "stdlib.h":
     void* malloc(size_t size)
@@ -35,13 +36,26 @@ cdef double trace (double [:,:] m) nogil:
     return m[0][0] + m[1][1]
 
 cdef double det (double [:,:] m) nogil:
+    # printf("%f\n", m[0][0])
+    # printf("%f\n", m[1][1])
+    # printf("%f\n", m[0][1])
+    # printf("%f\n", m[1][0])
+    cdef double value = (m[0][0] * m[1][1]) - (m[0][1] * m[1][0])
+    if value == 0.0:
+        printf("%f\n", m[0][0])
+        printf("%f\n", m[1][1])
+        printf("%f\n", m[0][1])
+        printf("%f\n", m[1][0])
     return (m[0][0] * m[1][1]) - (m[0][1] * m[1][0])
 
 cdef double[:,:] inv (double [:,:] m, double[:,:] ret) nogil:
     # cdef double *ret_ptr = <double*>malloc(4 * sizeof(double))
     # if not ret_ptr:
     #     raise MemoryError("Failed to allocate memory for ret")
-    cdef double coef = 1 / det(m)
+    cdef double determinant = det(m)
+    if determinant ==  0.0:
+        determinant = 0.01
+    cdef double coef = 1 / determinant
     # ret = <double[:2,:2]>ret_ptr
     # cdef double values [2,2] 
     ret[0][0] = coef * m[1][1]
