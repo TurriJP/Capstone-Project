@@ -191,6 +191,8 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                  Py_ssize_t max_iter,
                  double[::1] spacing,
                  bint slic_zero,
+                 int dist_measure,
+                 double spat_weight,
                  bint only_dist):
 
     """Helper function for SLIC maskslic.
@@ -324,7 +326,14 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             i_y = <int> cy
                             i_x = <int> cx
 
-                            dist_color = wishart_distance_cython(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x], buffer[z,y,x])
+                            if dist_measure == 0:
+                                dist_color = wishart_distance_cython(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x], buffer[z,y,x])
+                            if dist_measure == 1:
+                                dist_color = rw_distance_cython(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x], buffer[z,y,x])
+                            if dist_measure == 2:
+                                dist_color = snll_distance_cython(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x], buffer[z,y,x])
+                            if dist_measure == 3:
+                                dist_color = hlt_distance_cython(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x], buffer[z,y,x])
                             # dist_color = wishart_distance(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x])#snll_distance_cython(b, a)#selected_pixels)
                             if slic_zero:
                                 # TODO not implemented yet for slico
@@ -333,7 +342,7 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                                 if not only_dist:
                                     # dist_center += dist_color
                                     # print(dist_center/step_x)
-                                    dist_center = (dist_center/step)*5 + dist_color 
+                                    dist_center = (dist_center/step)*spat_weight + dist_color 
                                     # print(dist_color)
 
                             #assign new distance and new label to voxel if closer than other voxels

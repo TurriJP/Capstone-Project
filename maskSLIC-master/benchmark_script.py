@@ -37,7 +37,7 @@ random_numbers = np.random.rand(*image.shape)  # Use np.random.randn for random 
 image[zero_mask] = random_numbers[zero_mask]
 
 
-vv_slic = seg.slic(image, n_segments=2000, max_iter=100, compactness=0.1, enforce_connectivity=True  )
+vv_slic = seg.slic(image, n_segments=2000, max_iter=10, compactness=0.1, enforce_connectivity=True, distance=3, spatial_weight=5)
 # plt.imshow(vv_slic)
 plt.imsave('result.png', vv_slic)
 
