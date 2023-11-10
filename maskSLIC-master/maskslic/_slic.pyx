@@ -74,6 +74,35 @@ cdef double wishart_distance_cython (double[::1] V, double[::1] T,double[::1] bu
     cdef double ret = ln_det_V + trace_term
     return ret
 
+cdef double rw_distance_cython (double[::1] V, double[::1] T,double[::1] buffer) nogil:
+    cdef double q = 0
+    cdef double det_V = det(V)
+    cdef double det_T = det(T)
+    cdef double ln_det_V = log(fabs(det_V)/fabs(det_T))
+    cdef double[::1] inv_V = inv(V, buffer)
+    cdef double trace_term = trace(dot(inv_V, T, buffer)) 
+    cdef double ret = ln_det_V + trace_term - q
+    return ret
+
+cdef double snll_distance_cython (double[::1] V, double[::1] T,double[::1] buffer) nogil:
+    cdef double q = 0
+    cdef double[::1] inv_V = inv(V, buffer)
+    cdef double[::1] inv_T = inv(T, buffer)
+    cdef double trace_term1 = trace(dot(inv_V, T, buffer))
+    cdef double trace_term2 = trace(dot(inv_T, V, buffer))  
+    cdef double ret = 0.5 * (trace_term1 + trace_term2) -  q
+    return ret
+
+cdef double hlt_distance_cython (double[::1] V, double[::1] T,double[::1] buffer) nogil:
+    cdef double[::1] inv_V = inv(V, buffer)
+    cdef double[::1] inv_T = inv(T, buffer)
+    cdef double trace_term1 = trace(dot(inv_V, T, buffer))
+    cdef double trace_term2 = trace(dot(inv_T, V, buffer)) 
+    if trace_term1 > trace_term2:
+        return trace_term1
+    else:
+        return trace_term2
+
 cdef snll_distance(p, q):
     # Compute the Kullback-Leibler (KL) divergence from p to q
     kl_pq = np.sum(scipy.special.cython_special.kl_div(p, q))
@@ -87,8 +116,8 @@ cdef snll_distance(p, q):
     return snll
 
 def wishart_distance(V, T):
-    V = [[V[0], V[1]],[V[2], V[0]]]
-    T = [[T[0], T[1]],[T[2], T[0]]]
+    V = [[V[0], V[1]],[V[2], V[3]]]
+    T = [[T[0], T[1]],[T[2], T[3]]]
     # print(V)
     # print(T)
     # Calculate the determinant of V
@@ -108,7 +137,7 @@ def wishart_distance(V, T):
 
     return d_W
 
-cdef double snll_distance_cython(np.ndarray[double] p, np.ndarray[double] q):
+cdef double snll_distance_cython_v1(np.ndarray[double] p, np.ndarray[double] q):
     cdef double kl_pq = 0.0
     cdef double kl_qp = 0.0
     cdef int i
@@ -120,6 +149,38 @@ cdef double snll_distance_cython(np.ndarray[double] p, np.ndarray[double] q):
     snll = (kl_pq + kl_qp) / 2.0
     return snll
 
+# cdef double[::1] gdot (double[::1] m, double[::1] n, double[::1] ret) nogil:
+#     cdef Py_ssize_t s = len(m[0])
+#     for i in range(s):
+#         for j in range(s):
+#             ret[i][j] = 0
+#             for k in range(s):
+#                 ret[i][j] += m[i][k]*n[k][j]
+#     return ret
+				
+# cdef double gdet (double[::1] m, double[::1] b) nogil:
+# 	cdef Py_ssize_t k = len(m[0])
+# 	cdef double s = 1
+# 	if k==1:
+# 		return (m[0][0])
+# 	cdef double det = 0
+# 	for c in range(k):
+# 		cdef int m = 0
+# 		cdef int n = 0
+# 		for i in range(k):
+# 			for j in range(k):
+# 				b[i][j] = 0
+# 				if i!= 0 and j != c:
+# 					b[m][n] = a[i][j]
+# 					if n < (k-2):
+# 						n += 1
+# 					else:
+# 						n = 0
+# 						m += 1
+#             cdef double[::1] c
+# 			det = det + s * (m[0][c] * gdet(b, k - 1, c))
+# 			s = -1 * s
+# 	return det
 
 
 
@@ -264,7 +325,7 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             i_x = <int> cx
 
                             dist_color = wishart_distance_cython(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x], buffer[z,y,x])
-                            # dist_color = wishart_distance(b, a)#snll_distance_cython(b, a)#selected_pixels)
+                            # dist_color = wishart_distance(image_zyx[i_z,i_y,i_x], image_zyx[z,y,x])#snll_distance_cython(b, a)#selected_pixels)
                             if slic_zero:
                                 # TODO not implemented yet for slico
                                 dist_center += dist_color / max_dist_color[k]

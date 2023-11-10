@@ -21,7 +21,7 @@ vv = imread('data/chelsea.png')
 
 from rasterio.plot import reshape_as_image
 # Lendo resultado
-with rio.open('/media/jp/FreeAgent GoFlex Drive/TCC/compacto_mat.tif') as src:
+with rio.open('/media/jp/FreeAgent GoFlex Drive/TCC/MAIN2.tif') as src:
   image = src.read()
 image = reshape_as_image(image)
 print('imagem radar:')
@@ -37,7 +37,7 @@ random_numbers = np.random.rand(*image.shape)  # Use np.random.randn for random 
 image[zero_mask] = random_numbers[zero_mask]
 
 
-vv_slic = seg.slic(image, n_segments=1000, enforce_connectivity=True)
+vv_slic = seg.slic(image, n_segments=2000, max_iter=100, compactness=0.1, enforce_connectivity=True  )
 # plt.imshow(vv_slic)
 plt.imsave('result.png', vv_slic)
 
