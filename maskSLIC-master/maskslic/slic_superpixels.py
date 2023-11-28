@@ -117,7 +117,7 @@ def place_seed_points(image, img, mask, n_segments, spacing, q=99.99):
     return segments, step_x, step_y, step_z
 
 
-def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
+def slic(image, distance, spatial_weight, n_segments=100, compactness=10., max_iter=10, sigma=0,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=False, min_size_factor=0.5, max_size_factor=3,
          slic_zero=False, seed_type='grid', mask=None, recompute_seeds=False, 
@@ -228,7 +228,6 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     if slic_zero:
         raise NotImplementedError("Slic zero has not been implemented yet for maskSLIC.")
 
-
     img = np.copy(image)
     if mask is not None:
         msk = np.copy(mask==1)
@@ -257,6 +256,18 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     elif image.ndim == 3 and not multichannel:
         # Add channel as single last dimension
         image = image[..., np.newaxis]
+
+
+    # # Create a new array with shape (height, width, 4)
+    # new_image = np.zeros((image.shape[0], image.shape[1], image.shape[2], 4), dtype=image.dtype)
+
+    # # Copy RGB values to the first three channels
+    # new_image[:, :, :, :3] = image
+
+    # # Set alpha channel to a constant value (e.g., fully opaque, 1.0)
+    # new_image[:, :, :, 3] = 1.0
+
+    # image = new_image
 
     if mask is None:
         mask = np.ones(image.shape[:3], dtype=bool)
@@ -345,7 +356,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
 
         # Seed step 2: Run SLIC to reinitialise seeds
         # Runs the supervoxel method but only uses distance to better initialise the method
-        labels = _slic_cython(image, mask, segments, step, max_iter, spacing, slic_zero, only_dist=True)
+        labels = _slic_cython(image, mask, segments, step, max_iter, spacing, slic_zero, distance, spatial_weight, only_dist=True)
 
     # Testing
     if plot_examples:
@@ -365,7 +376,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
 
     # image = np.ascontiguousarray(image * ratio)
 
-    labels = _slic_cython(image, mask, segments, step, max_iter, spacing, slic_zero, only_dist=False)
+    labels = _slic_cython(image, mask, segments, step, max_iter, spacing, slic_zero, distance, spatial_weight, only_dist=False)
 
     if enforce_connectivity:
         if msk is None:
