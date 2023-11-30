@@ -62,8 +62,8 @@ def test(filepath, n_segments, enforce_connectivity, distance, spatial_weight, f
       return vv_slic
     
 def main(color_img):
-  filename = 'AREA3_c_10000_snll'
-  slic = test(file, 10000, True, 2, 5, filename, color_image=color_img, w=998, h=977) 
+  filename = 'AREA3_c_10000_RETESTANDO'
+  slic = test(file, 10000, True, 0, 5, filename, color_image=color_img, w=998, h=977) 
    
 img = color_img()
 main(img)
