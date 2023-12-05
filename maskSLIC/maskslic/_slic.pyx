@@ -23,6 +23,7 @@ cimport numpy as np
 
 from skimage.util import regular_grid
 
+<<<<<<< HEAD:maskSLIC/maskslic/_slic.pyx
 # from scipy.special import kl_div
 cimport scipy.special.cython_special
 from cython.cimports.libc.math import log, fabs
@@ -189,6 +190,9 @@ cdef double snll_distance_cython_v2(double[::1] u, double[::1] v):
 # 			s = -1 * s
 # 	return det
 
+=======
+from .helpers import GeneralizedGamma
+>>>>>>> main:maskSLIC-master/maskslic/_slic.pyx
 
 
 def _slic_cython(double[:, :, :, ::1] image_zyx,
@@ -289,7 +293,14 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
 
     # The reference implementation (Achanta et al.) calls this invxywt
     cdef double spatial_weight = float(1) / (step ** 2)
+    
+    # with nogil:
+    for i in range(max_iter):
+        print(f'ITERAÇÃO: {i}')
+        change = 0
+        distance[:, :, :] = DBL_MAX
 
+<<<<<<< HEAD:maskSLIC/maskslic/_slic.pyx
     cdef int i_z, i_y, i_x
     cdef double[:, :, :, ::1] buffer \
         = np.empty((depth, height, width, n_features), dtype=np.double)
@@ -304,33 +315,43 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
             printf("%d\n", i)
             change = 0
             distance[:, :, :] = DBL_MAX
+=======
+        # assign pixels to segments
+        for k in range(n_segments):
+>>>>>>> main:maskSLIC-master/maskslic/_slic.pyx
 
-            # assign pixels to segments
-            for k in range(n_segments):
+            # segment coordinate centers
+            cz = segments[k, 0]
+            cy = segments[k, 1]
+            cx = segments[k, 2]
 
-                # segment coordinate centers
-                cz = segments[k, 0]
-                cy = segments[k, 1]
-                cx = segments[k, 2]
+            # compute windows
+            z_min = <Py_ssize_t>max(cz - 2 * step_z, 0)
+            z_max = <Py_ssize_t>min(cz + 2 * step_z + 1, depth)
+            y_min = <Py_ssize_t>max(cy - 2 * step_y, 0)
+            y_max = <Py_ssize_t>min(cy + 2 * step_y + 1, height)
+            x_min = <Py_ssize_t>max(cx - 2 * step_x, 0)
+            x_max = <Py_ssize_t>min(cx + 2 * step_x + 1, width)
 
-                # compute windows
-                z_min = <Py_ssize_t>max(cz - 2 * step_z, 0)
-                z_max = <Py_ssize_t>min(cz + 2 * step_z + 1, depth)
-                y_min = <Py_ssize_t>max(cy - 2 * step_y, 0)
-                y_max = <Py_ssize_t>min(cy + 2 * step_y + 1, height)
-                x_min = <Py_ssize_t>max(cx - 2 * step_x, 0)
-                x_max = <Py_ssize_t>min(cx + 2 * step_x + 1, width)
+            gg = None
+            if i==0:
+                gg = GeneralizedGamma(image_zyx[z_min:z_max, y_min:y_max, x_min:x_max, :])
+            else:
+                segment_mask = nearest_segments == int(k)
+                current_segment = image_zyx[segment_mask]
+                gg = GeneralizedGamma(current_segment)
 
-                for z in range(z_min, z_max):
-                    dz = (sz * (cz - z)) ** 2
-                    for y in range(y_min, y_max):
-                        dy = (sy * (cy - y)) ** 2
-                        for x in range(x_min, x_max):
+            for z in range(z_min, z_max):
+                dz = (sz * (cz - z)) ** 2
+                for y in range(y_min, y_max):
+                    dy = (sy * (cy - y)) ** 2
+                    for x in range(x_min, x_max):
 
-                            if mask[z, y, x] == 0:
-                                nearest_segments[z, y, x] = -1
-                                continue
+                        if mask[z, y, x] == 0:
+                            nearest_segments[z, y, x] = -1
+                            continue
 
+<<<<<<< HEAD:maskSLIC/maskslic/_slic.pyx
                             dist_center = (dz + dy + (sx * (cx - x)) ** 2) * spatial_weight
                             dist_color = 0
 
@@ -357,23 +378,65 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                                     # print(dist_center/step_x)
                                     dist_center = (dist_center/step)*spat_weight + dist_color 
                                     # print(dist_color)
+=======
+                        dist_center = (dz + dy + (sx * (cx - x)) ** 2) * spatial_weight
+                        # gg = GeneralizedGamma(image_zyx)
+                        dist_color = gg.likelihood_distance(image_zyx[z, y, x, 0], 0.3, dist_center)
+                        # print(dist_color)
+                        # dist_color = 0
+                        # for c in range(3, n_features):
+                        #     dist_color += (image_zyx[z, y, x, c - 3]
+                        #                     - segments[k, c]) ** 2
+                        if slic_zero:
+                            # TODO not implemented yet for slico
+                            dist_center += dist_color / max_dist_color[k]
+                        else:
+                            if not only_dist:
+                                dist_center += dist_color
+>>>>>>> main:maskSLIC-master/maskslic/_slic.pyx
 
-                            #assign new distance and new label to voxel if closer than other voxels
-                            if distance[z, y, x] > dist_center:
-                                nearest_segments[z, y, x] = k
-                                distance[z, y, x] = dist_center
-                                #record change
-                                change = 1
+                        #assign new distance and new label to voxel if closer than other voxels
+                        if int(i)==0 or (distance[z, y, x] < dist_center):
+                            nearest_segments[z, y, x] = k
+                            distance[z, y, x] = dist_center
+                            #record change
+                            change = 1
 
-            # stop if no pixel changed its segment
-            if change == 0:
-                break
+        # stop if no pixel changed its segment
+        if change == 0:
+            break
 
-            # recompute segment centers
+        # recompute segment centers
 
-            # sum features for all segments
-            n_segment_elems[:] = 0
-            segments[:, :] = 0
+        # sum features for all segments
+        n_segment_elems[:] = 0
+        segments[:, :] = 0
+        for z in range(depth):
+            for y in range(height):
+                for x in range(width):
+
+                    if mask[z, y, x] == 0:
+                        continue
+
+                    if nearest_segments[z, y, x] == -1:
+                        continue
+
+                    k = nearest_segments[z, y, x]
+
+                    n_segment_elems[k] += 1
+                    segments[k, 0] += z
+                    segments[k, 1] += y
+                    segments[k, 2] += x
+                    for c in range(3, n_features):
+                        segments[k, c] += image_zyx[z, y, x, c - 3]
+
+        # divide by number of elements per segment to obtain mean
+        for k in range(n_segments):
+            for c in range(n_features):
+                segments[k, c] /= n_segment_elems[k]
+
+        # If in SLICO mode, update the color distance maxima
+        if slic_zero:
             for z in range(depth):
                 for y in range(height):
                     for x in range(width):
@@ -385,14 +448,13 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             continue
 
                         k = nearest_segments[z, y, x]
+                        dist_color = 0
 
-                        n_segment_elems[k] += 1
-                        segments[k, 0] += z
-                        segments[k, 1] += y
-                        segments[k, 2] += x
                         for c in range(3, n_features):
-                            segments[k, c] += image_zyx[z, y, x, c - 3]
+                            dist_color += (image_zyx[z, y, x, c - 3] -
+                                            segments[k, c]) ** 2
 
+<<<<<<< HEAD:maskSLIC/maskslic/_slic.pyx
             # divide by number of elements per segment to obtain mean
             for k in range(n_segments):
                 for c in range(n_features):
@@ -421,6 +483,12 @@ def _slic_cython(double[:, :, :, ::1] image_zyx,
                             # the color if it increases from previous iteration
                             if max_dist_color[k] < dist_color:
                                 max_dist_color[k] = dist_color
+=======
+                        # The reference implementation seems to only change
+                        # the color if it increases from previous iteration
+                        if max_dist_color[k] < dist_color:
+                            max_dist_color[k] = dist_color
+>>>>>>> main:maskSLIC-master/maskslic/_slic.pyx
 
     return np.asarray(nearest_segments)
 

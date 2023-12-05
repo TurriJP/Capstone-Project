@@ -228,6 +228,11 @@ def slic(image, distance, spatial_weight, n_segments=100, compactness=10., max_i
     if slic_zero:
         raise NotImplementedError("Slic zero has not been implemented yet for maskSLIC.")
 
+<<<<<<< HEAD:maskSLIC/maskslic/slic_superpixels.py
+=======
+    print('OLARRRRR')
+
+>>>>>>> main:maskSLIC-master/maskslic/slic_superpixels.py
     img = np.copy(image)
     if mask is not None:
         msk = np.copy(mask==1)
